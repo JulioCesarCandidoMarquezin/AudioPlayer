@@ -24,6 +24,7 @@ public class AudioPlayer {
             clip.open(ais);
 
             Control[] clipControls = clip.getControls();
+            controls.removeAll(controls);
             for (Control control : clipControls)
             {
                 if (control instanceof FloatControl)
