@@ -8,14 +8,14 @@ import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class AudioPlayer {
     private static File audioFile;
     private static Clip clip;
     private static final List<FloatControl> controls = new ArrayList<>();
 
-    private static void setAudioFile(File audio) {
+    private static void setAudioFile(File audio)
+    {
         try {
             audioFile = audio;
             AudioInputStream ais = AudioSystem.getAudioInputStream(audioFile);
@@ -24,8 +24,10 @@ public class AudioPlayer {
             clip.open(ais);
 
             Control[] clipControls = clip.getControls();
-            for (Control control : clipControls) {
-                if (control instanceof FloatControl) {
+            for (Control control : clipControls)
+            {
+                if (control instanceof FloatControl)
+                {
                     controls.add((FloatControl) control);
                 }
             }
@@ -40,7 +42,7 @@ public class AudioPlayer {
         JPanel panel = new JPanel(new GridLayout(5,1));
         JPanel buttonPanel = new JPanel(new GridLayout(1, 4));
         JPanel controlPanel = new JPanel(new GridLayout(3, 2));
-        JLabel audioName = new JLabel(audioFile.getName().substring(0, audioFile.getName().lastIndexOf(".")));
+        JLabel audioName = new JLabel("");
         JFileChooser fileChooser = new JFileChooser();
         JProgressBar progress = new JProgressBar(0, 100);
         JButton chooseAudio = new JButton("Choose audio");
@@ -49,44 +51,37 @@ public class AudioPlayer {
         JButton reset = new JButton("Reset");
         JButton quit = new JButton("Quit");
 
-        for (FloatControl control : controls) {
-            JSlider controlSlider = new JSlider(0, 100);
-            controlSlider.addChangeListener(e -> {
-                int value = controlSlider.getValue();
-                float min = control.getMinimum();
-                float max = control.getMaximum();
-                float range = max - min;
-                float adjustedValue = min + (range * (value / 100.0f));
-                control.setValue(adjustedValue);
-            });
-
-            controlPanel.add(new JLabel(control.getType().toString()));
-            controlPanel.add(controlSlider);
-        }
-
         FileFilter audioFilter = new FileNameExtensionFilter("Arquivos de Áudio", "wav");
         fileChooser.setFileFilter(audioFilter);
 
         updateProgressBar(progress);
 
-        chooseAudio.addActionListener(e -> {
+        chooseAudio.addActionListener(e ->
+        {
             int result = fileChooser.showOpenDialog(null);
             if (result == JFileChooser.APPROVE_OPTION) {
-                clip.close();
+                if(clip != null) clip.close();
                 audioFile = fileChooser.getSelectedFile();
                 String audioNameString = audioFile.getName();
                 audioName.setText(audioNameString.substring(0, audioNameString.lastIndexOf(".")));
                 setAudioFile(audioFile);
                 clip.start();
+                getSliders(controlPanel);
             }
         });
+
         play.addActionListener((e) -> clip.start());
+
         stop.addActionListener((e) -> clip.stop());
-        reset.addActionListener((e) -> {
+
+        reset.addActionListener((e) ->
+        {
             clip.setMicrosecondPosition(0);
             progress.setValue(0);
         });
-        quit.addActionListener(e -> {
+
+        quit.addActionListener(e ->
+        {
             clip.close();
             frame.dispose();
         });
@@ -116,23 +111,48 @@ public class AudioPlayer {
         frame.setSize(400,400);
     }
 
-    private static void updateProgressBar(JProgressBar progress) {
-        Thread progressBarUpdater = new Thread(() -> {
-            while (true) {
-                if(clip.isRunning()) {
-                    int position = (int) clip.getMicrosecondPosition();
-                    int length = (int) clip.getMicrosecondLength();
-                    int percentage = (int) ((position * 100.0) / length);
-                    progress.setValue(percentage);
+    private static void getSliders(JPanel controlPanel)
+    {
+        for (FloatControl control : controls)
+        {
+            JSlider controlSlider = new JSlider(0, 100);
+            controlSlider.addChangeListener(e ->
+            {
+                int value = controlSlider.getValue();
+                float min = control.getMinimum();
+                float max = control.getMaximum();
+                float range = max - min;
+                float adjustedValue = min + (range * (value / 100.0f));
+                control.setValue(adjustedValue);
+            });
+
+            controlPanel.add(new JLabel(control.getType().toString()));
+            controlPanel.add(controlSlider);
+        }
+    }
+
+    private static void updateProgressBar(JProgressBar progress)
+    {
+        Thread progressBarUpdater = new Thread(() ->
+        {
+            while (true)
+            {
+                if(clip != null) {
+                    if (clip.isRunning())
+                    {
+                        int position = (int) clip.getMicrosecondPosition();
+                        int length = (int) clip.getMicrosecondLength();
+                        int percentage = (int) ((position * 100.0) / length);
+                        progress.setValue(percentage);
+                    }
                 }
             }
         });
         progressBarUpdater.start();
     }
 
-    public static void main(String[] args) {
-        setAudioFile(new File(Objects.requireNonNull(AudioPlayer.class.getResource("/SnapInsta.io-Hino-Nacional-com-letra-_128-kbps_.wav")).getFile()));
-
+    public static void main(String[] args)
+    {
         screen();
     }
 }
