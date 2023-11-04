@@ -6,84 +6,35 @@ import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
-import java.util.Objects;
+import java.util.ArrayList;
+import java.util.List;
 
-public class AudioPlayer {
+public class AudioPlayer extends JFrame{
+    private static AudioPlayer audioPlayer;
+    private static final JPanel panel = new JPanel(new GridLayout(5,1));
+    private static final JPanel buttonPanel = new JPanel(new GridLayout(1, 4));
+    private static final JPanel controlPanel = new JPanel(new GridLayout(3,2));
+    private static final JLabel audioName = new JLabel("");
+    private static final JFileChooser fileChooser = new JFileChooser();
+    private static final FileFilter audioFilter = new FileNameExtensionFilter("Arquivos de Áudio", "wav");
+    private static final JProgressBar progress = new JProgressBar(0, 100);
+    private static final JButton chooseAudio = new JButton("Choose audio");
+    private static final JButton play = new JButton("Play");
+    private static final JButton stop = new JButton("Stop");
+    private static final JButton reset = new JButton("Reset");
+    private static final JButton quit = new JButton("Quit");
     private static File audioFile;
     private static Clip clip;
-    private static FloatControl volumeControl;
-    private static FloatControl balanceControl;
+    private static final List<FloatControl> controls = new ArrayList<>();
 
-    public static void main(String[] args) {
-        setAudioFile(new File(Objects.requireNonNull(AudioPlayer.class.getResource("/SnapInsta.io-Hino-Nacional-com-letra-_128-kbps_.wav")).getFile()));
-
-        screen();
-    }
-
-    private static void setAudioFile(File audio) {
-        try {
-            audioFile = audio;
-            AudioInputStream ais = AudioSystem.getAudioInputStream(audioFile);
-
-            clip = AudioSystem.getClip();
-            clip.open(ais);
-
-            volumeControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-            balanceControl = (FloatControl) clip.getControl(FloatControl.Type.BALANCE);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    private static void screen()
+    private static void start()
     {
-        JFrame frame = new JFrame("Tocador de audio");
-        JPanel panel = new JPanel(new GridLayout(5,1)), buttonPanel = new JPanel(new GridLayout(1, 4));
-        JLabel audioName = new JLabel(audioFile.getName().substring(0, audioFile.getName().lastIndexOf(".")));
-        JFileChooser fileChooser = new JFileChooser();
-        JProgressBar progress = new JProgressBar(0, 100);
-        JButton chooseAudio = new JButton("Choose audio"), play = new JButton("Play"), stop = new JButton("Stop"), reset = new JButton("Reset"), quit = new JButton("Quit");
+        if(audioFile == null) audioPlayer = new AudioPlayer();
+    }
 
-        JSlider volumeSlider = new JSlider(0, 100);
-        JSlider balanceSlider = new JSlider(-100, 100);
-
-        volumeSlider.addChangeListener(e -> {
-            int value = volumeSlider.getValue();
-            float gain = (float) Math.log10(value / 100.0) * 20;
-            volumeControl.setValue(gain);
-        });
-
-        balanceSlider.addChangeListener(e -> {
-            int value = balanceSlider.getValue();
-            balanceControl.setValue(value / 100.0f);
-        });
-
-        FileFilter audioFilter = new FileNameExtensionFilter("Arquivos de Áudio", "wav");
-        fileChooser.setFileFilter(audioFilter);
-
-        updateProgressBar(progress);
-
-        chooseAudio.addActionListener(e -> {
-            int result = fileChooser.showOpenDialog(null);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                clip.close();
-                audioFile = fileChooser.getSelectedFile();
-                String audioNameString = audioFile.getName();
-                audioName.setText(audioNameString.substring(0, audioNameString.lastIndexOf(".")));
-                setAudioFile(audioFile);
-                clip.start();
-            }
-        });
-        play.addActionListener((e) -> clip.start());
-        stop.addActionListener((e) -> clip.stop());
-        reset.addActionListener((e) -> {
-            clip.setMicrosecondPosition(0);
-            progress.setValue(0);
-        });
-        quit.addActionListener(e -> {
-            clip.close();
-            frame.dispose();
-        });
+    private AudioPlayer()
+    {
+        initialize();
 
         buttonPanel.add(play);
         buttonPanel.add(stop);
@@ -95,12 +46,6 @@ public class AudioPlayer {
         panel.add(buttonPanel);
         panel.add(chooseAudio);
 
-        JPanel controlPanel = new JPanel(new GridLayout(2, 2));
-        controlPanel.add(new JLabel("Volume:"));
-        controlPanel.add(volumeSlider);
-        controlPanel.add(new JLabel("Balanço:"));
-        controlPanel.add(balanceSlider);
-
         panel.add(controlPanel);
 
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -109,29 +54,117 @@ public class AudioPlayer {
         audioName.setHorizontalAlignment(SwingConstants.CENTER);
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
-        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setLocationRelativeTo(null);
-        frame.setContentPane(panel);
-        frame.setVisible(true);
-        frame.setSize(400,400);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setContentPane(panel);
+        setVisible(true);
+        setTitle("Tocador de audio");
+        setSize(400,400);
     }
 
-    private static void updateProgressBar(JProgressBar progress) {
-        Thread progressBarUpdater = new Thread(() -> {
+    private void initialize()
+    {
+        fileChooser.setFileFilter(audioFilter);
+
+        initializeEvents();
+
+        updateProgressBar();
+    }
+
+    private void initializeEvents()
+    {
+        chooseAudio.addActionListener(e ->
+        {
+            int result = fileChooser.showOpenDialog(null);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                if(clip != null) clip.close();
+                audioFile = fileChooser.getSelectedFile();
+                String audioNameString = audioFile.getName();
+                audioName.setText(audioNameString.substring(0, audioNameString.lastIndexOf(".")));
+                setAudioFile(audioFile);
+                initializeControlSliders();
+                clip.start();
+            }
+        });
+
+        play.addActionListener((e) -> clip.start());
+
+        stop.addActionListener((e) -> clip.stop());
+
+        reset.addActionListener((e) ->
+        {
+            clip.setMicrosecondPosition(0);
+            progress.setValue(0);
+        });
+
+        quit.addActionListener(e ->
+        {
+            clip.close();
+            dispose();
+        });
+    }
+
+    private void initializeControlSliders()
+    {
+        for (FloatControl control : controls) {
+            JSlider controlSlider = new JSlider(0, 100);
+            controlSlider.addChangeListener(e ->
+            {
+                int value = controlSlider.getValue();
+                float min = control.getMinimum();
+                float max = control.getMaximum();
+                float range = max - min;
+                float adjustedValue = min + (range * (value / 100.0f));
+                control.setValue(adjustedValue);
+            });
+
+            controlPanel.add(new JLabel(control.getType().toString()));
+            controlPanel.add(controlSlider);
+        }
+    }
+
+    private static void setAudioFile(File audio) {
+        try {
+            audioFile = audio;
+            AudioInputStream ais = AudioSystem.getAudioInputStream(audioFile);
+
+            clip = AudioSystem.getClip();
+            clip.open(ais);
+
+            audioName.setText(audioFile.getName().substring(0, audioFile.getName().lastIndexOf(".")));
+
+            Control[] clipControls = clip.getControls();
+            for (Control control : clipControls) {
+                if (control instanceof FloatControl) {
+                    controls.add((FloatControl) control);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private static void updateProgressBar() {
+        Thread progressBarUpdater = new Thread(() ->
+        {
             while (true) {
-                if(clip.isRunning()) {
-                    int position = (int) clip.getMicrosecondPosition();
-                    int length = (int) clip.getMicrosecondLength();
-                    int percentage = (int) ((position * 100.0) / length);
-                    progress.setValue(percentage);
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                if(clip != null)
+                {
+                    if(clip.isRunning())
+                    {
+                        int position = (int) clip.getMicrosecondPosition();
+                        int length = (int) clip.getMicrosecondLength();
+                        int percentage = (int) ((position * 100.0) / length);
+                        progress.setValue(percentage);
                     }
                 }
             }
         });
         progressBarUpdater.start();
+    }
+
+    public static void main(String[] args)
+    {
+        start();
     }
 }
