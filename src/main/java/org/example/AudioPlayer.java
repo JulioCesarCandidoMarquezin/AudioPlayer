@@ -113,6 +113,7 @@ public class AudioPlayer {
 
     private static void getSliders(JPanel controlPanel)
     {
+        controlPanel.removeAll();
         for (FloatControl control : controls)
         {
             JSlider controlSlider = new JSlider(0, 100);
